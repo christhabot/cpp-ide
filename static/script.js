@@ -116,7 +116,7 @@ function runCode() {
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
       }
-      return res.json();
+      return res.json(); // a
     })
     .then(data => {
       if (!data.token) {
