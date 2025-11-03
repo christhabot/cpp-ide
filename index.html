@@ -13,7 +13,7 @@
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.min.js"></script>
 
-  <script src="static/script.js"></script>
+  <script src="static/script.js"></script> <!-- AT THE END -->
 </head>
 
 <body>
@@ -72,7 +72,7 @@
 
   
   <script>
-    const initialCode = {{ initial_code | tojson }};
+    const initialCode = {{ initial_code | tojson | default('""') }};
   </script>
 
   

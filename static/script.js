@@ -2,15 +2,19 @@ let editor;
 
 // ----------- Initialize Monaco Editor -----------
 require.config({ paths: { vs: 'https://unpkg.com/monaco-editor@latest/min/vs' } });
-require(["vs/editor/editor.main"], function () {
-  editor = monaco.editor.create(document.getElementById("editor-container"), {
-    value: initialCode,
-    language: "cpp",
-    theme: "vs-dark",
-    automaticLayout: true,
-    fontSize: 14,
-    minimap: { enabled: false },
-    mouseWheelZoom: true   
+  require(["vs/editor/editor.main"], function () {
+    document.addEventListener("DOMContentLoaded", () => {
+      require(["vs/editor/editor.main"], function () {
+          editor = monaco.editor.create(document.getElementById("editor-container"), {
+              value: initialCode,
+              language: "cpp",
+              theme: "vs-dark",
+              automaticLayout: true,
+              fontSize: 14,
+              minimap: { enabled: false },
+              mouseWheelZoom: true   
+          });
+      });
   });
 
   let lastTouchDistance = null;
@@ -364,7 +368,10 @@ function passwordPrompt(message) {
 
 let password, GITHUB_TOKEN;
 (async () => {
-  password = await passwordPrompt("Enter your password:");
+  password = await document.addEventListener("DOMContentLoaded", () => {
+      passwordPrompt("Enter password");
+  });
+
   const key = password + "Jh1QcY"; // like your original derivation
   const cipherBase64 = "H9Ib1iJLFXwjgvoe1rV6YZvln92KVH9nSJwdgMgXFs86Q6Aly8nYxUx9AI02zF7M";
 
