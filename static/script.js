@@ -1,5 +1,6 @@
 let editor;
 
+// ----------- Initialize Monaco Editor -----------
 require.config({ paths: { vs: 'https://unpkg.com/monaco-editor@latest/min/vs' } });
 require(["vs/editor/editor.main"], function () {
   editor = monaco.editor.create(document.getElementById("editor-container"), {
@@ -27,10 +28,10 @@ require(["vs/editor/editor.main"], function () {
 
     if (lastTouchDistance) {
       const delta = distance - lastTouchDistance;
-      if (Math.abs(delta) > 5) { 
+      if (Math.abs(delta) > 5) { // sensitivity
         let fontSize = editor.getOption(monaco.editor.EditorOption.fontSize);
         fontSize += delta > 0 ? 1 : -1;
-        fontSize = Math.max(8, Math.min(40, fontSize)); 
+        fontSize = Math.max(8, Math.min(40, fontSize)); // clamp range
         editor.updateOptions({ fontSize });
       }
     }
@@ -43,6 +44,7 @@ require(["vs/editor/editor.main"], function () {
 
 });
 
+// ----------- Button Event Listeners -----------
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("run-button").addEventListener("click", runCode);
   document.getElementById("save-button").addEventListener("click", saveCurrent);
@@ -52,21 +54,22 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("load-menu").style.display = "none";
   });
 });
+// ----------- 1) RUN CODE -----------
 
 let codechefSession = null;
 
 async function getCodeChefSession() {
   if (codechefSession) return codechefSession;
-
+  
   const workerUrl = "https://cors-header-proxy.christhabotyt.workers.dev";
   const response = await fetch(`${workerUrl}?getcsrf=true`);
   const data = await response.json();
-
+  
   codechefSession = {
     csrf: data.csrf,
     cookies: data.cookies
   };
-
+  
   return codechefSession;
 }
 
@@ -77,8 +80,10 @@ function runCode() {
   const runtimeLabel = document.getElementById("runtime-label");
   const spinner = document.getElementById("spinner");
 
+  // Show spinner
   spinner.style.display = "inline-block";
 
+  // Base64 encode the code and input
   let encodedCode, encodedInput;
   try {
     encodedCode = btoa(unescape(encodeURIComponent(code)));
@@ -89,6 +94,7 @@ function runCode() {
     return;
   }
 
+  // Submit the code
   fetch("https://judge0-public.newtonschool.co/submissions/?base64_encoded=true&wait=false", {
     headers: {
       "accept": "*/*",
@@ -116,14 +122,15 @@ function runCode() {
       if (!data.token) {
         throw new Error("No token received from API");
       }
-
+      
       const token = data.token;
       let pollCount = 0;
-      const maxPolls = 60; 
-
+      const maxPolls = 60; // Maximum 30 seconds
+      
+      // Poll for results every 500ms
       const pollInterval = setInterval(() => {
         pollCount++;
-
+        
         if (pollCount > maxPolls) {
           clearInterval(pollInterval);
           spinner.style.display = "none";
@@ -131,14 +138,14 @@ function runCode() {
           runtimeLabel.style.display = "none";
           return;
         }
-
-        fetch(`https:
+        
+        fetch(`https://judge0-public.newtonschool.co/submissions/${token}/?base64_encoded=true&wait=false`, {
           headers: {
             "accept": "*/*",
           },
           method: "GET",
           mode: "cors",
-        }`)
+        })
           .then(res => {
             if (!res.ok) {
               throw new Error(`HTTP error! status: ${res.status}`);
@@ -146,11 +153,12 @@ function runCode() {
             return res.json();
           })
           .then(result => {
-
+            // Status IDs: 1=In Queue, 2=Processing, 3=Accepted, others=Error/Complete
             if (result.status.id !== 1 && result.status.id !== 2) {
               clearInterval(pollInterval);
               spinner.style.display = "none";
-
+              
+              // Decode stdout/stderr if present
               let output = "";
               try {
                 if (result.stdout) {
@@ -167,10 +175,11 @@ function runCode() {
               } catch (e) {
                 output = "Error decoding output: " + e.message;
               }
-
+              
               outputBox.textContent = output;
               outputBox.scrollTop = outputBox.scrollHeight;
-
+              
+              // Show runtime info
               if (result.time !== null && result.time !== undefined) {
                 const exitCode = result.status.id === 3 ? 0 : result.status.id;
                 runtimeLabel.innerHTML = `Execution time: ${result.time} s&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;Exit code: ${exitCode}&nbsp;`;
@@ -197,11 +206,13 @@ function runCode() {
     });
 }
 
+
 function openSaveMenu() {
   document.getElementById("save-menu").style.display = "flex";
   refreshSaveLocationsList();
 }
 
+// Add this CSS for the save menu (you can add it to your main CSS file)
 const saveMenuCSS = `
 #save-menu {
   display: none;
@@ -289,6 +300,7 @@ const saveMenuCSS = `
 }
 `;
 
+// Add the styles to the page if not already present
 if (!document.getElementById('save-menu-styles')) {
   const style = document.createElement('style');
   style.id = 'save-menu-styles';
@@ -297,7 +309,7 @@ if (!document.getElementById('save-menu-styles')) {
 }
 
 function passwordPrompt(message) {
-
+    // create modal div
     const modal = document.createElement("div");
     modal.style.position = "fixed";
     modal.style.top = "0";
@@ -310,6 +322,7 @@ function passwordPrompt(message) {
     modal.style.alignItems = "center";
     modal.style.zIndex = "9999";
 
+    // inner box
     const box = document.createElement("div");
     box.style.background = "white";
     box.style.padding = "20px";
@@ -321,7 +334,7 @@ function passwordPrompt(message) {
     box.appendChild(text);
 
     const input = document.createElement("input");
-    input.type = "password"; 
+    input.type = "password"; // masked input
     input.style.marginTop = "10px";
     input.style.width = "100%";
     box.appendChild(input);
@@ -352,13 +365,13 @@ function passwordPrompt(message) {
 let password, GITHUB_TOKEN;
 (async () => {
   password = await passwordPrompt("Enter your password:");
-  const key = password + "Jh1QcY"; 
+  const key = password + "Jh1QcY"; // like your original derivation
   const cipherBase64 = "H9Ib1iJLFXwjgvoe1rV6YZvln92KVH9nSJwdgMgXFs86Q6Aly8nYxUx9AI02zF7M";
 
   const decrypted = CryptoJS.AES.decrypt(cipherBase64, CryptoJS.enc.Utf8.parse(key), {
     mode: CryptoJS.mode.CBC,
     padding: CryptoJS.pad.Pkcs7,
-    iv: CryptoJS.enc.Hex.parse('00000000000000000000000000000000') 
+    iv: CryptoJS.enc.Hex.parse('00000000000000000000000000000000') // zero IV
   });
 
   const plainText = decrypted.toString(CryptoJS.enc.Utf8);
@@ -367,8 +380,11 @@ let password, GITHUB_TOKEN;
 })();
 
 const GIST_ID = "10caccb12fdfbaae95a3488c9778136b";
-const GIST_API_URL = `https:
+const GIST_API_URL = `https://api.github.com/gists/${GIST_ID}`;
 
+// ========== HELPER FUNCTIONS ==========
+
+// Fetch the entire gist structure
 async function fetchGist() {
   const response = await fetch(GIST_API_URL, {
     headers: {
@@ -376,14 +392,15 @@ async function fetchGist() {
       "Accept": "application/vnd.github.v3+json"
     }
   });
-
+  
   if (!response.ok) {
     throw new Error(`GitHub API error: ${response.status}`);
   }
-
+  
   return await response.json();
 }
 
+// Update the gist with new files
 async function updateGist(files) {
   const response = await fetch(GIST_API_URL, {
     method: "PATCH",
@@ -394,53 +411,61 @@ async function updateGist(files) {
     },
     body: JSON.stringify({ files })
   });
-
+  
   if (!response.ok) {
     throw new Error(`GitHub API error: ${response.status}`);
   }
-
+  
   return await response.json();
 }
 
+// Convert flat file list to folder structure
 function buildFolderStructure(files) {
   const root = [];
   const folderMap = new Map();
-
+  
+  // Get all file paths and decode them (replace ___ with /)
   const filePaths = Object.keys(files).map(path => path.replace(/___/g, '/'));
-
+  
+  // Build folder structure
   filePaths.forEach(path => {
-
+    // Skip files in deleted folder
     if (path.startsWith('deleted/')) return;
-
+    
     const parts = path.split('/');
-
+    
     if (parts.length === 1) {
-
+      // Root level file
       root.push({ name: parts[0], type: "file" });
     } else {
-
+      // File in folder(s)
       let currentLevel = root;
       let currentPath = "";
-
+      
+      // Build folders
       for (let i = 0; i < parts.length - 1; i++) {
         currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
-
+        
         if (!folderMap.has(currentPath)) {
           const folder = { name: parts[i], type: "folder", contents: [] };
           currentLevel.push(folder);
           folderMap.set(currentPath, folder.contents);
         }
-
+        
         currentLevel = folderMap.get(currentPath);
       }
-
+      
+      // Add file to its folder
       currentLevel.push({ name: parts[parts.length - 1], type: "file" });
     }
   });
-
+  
   return root;
 }
 
+// ========== STORAGE API FUNCTIONS (Replace backend endpoints) ==========
+
+// GET /saves - List all files in folder structure
 async function getSaves() {
   try {
     const gist = await fetchGist();
@@ -451,160 +476,175 @@ async function getSaves() {
   }
 }
 
+// POST /save - Save a file
 async function saveFile(filename, code, overwrite = false) {
   try {
     const gist = await fetchGist();
-
-    const encodedFilename = filename.replace(/\
-
+    
+    // Check if file exists
+    const encodedFilename = filename.replace(/\//g, '___'); // Gist doesn't allow / in filenames
+    
     if (gist.files[encodedFilename] && !overwrite) {
       return { 
         status: "exists", 
         message: `File "${filename}" already exists. Do you want to overwrite it?` 
       };
     }
-
+    
+    // Save the file
     const files = {
       [encodedFilename]: {
         content: code
       }
     };
-
+    
     await updateGist(files);
-
+    
     return { status: "ok", filename: filename };
   } catch (err) {
     return { status: "error", message: err.message };
   }
 }
 
+// GET /load - Load a file
 async function loadFile(filename) {
   try {
     const gist = await fetchGist();
-    const encodedFilename = filename.replace(/\
-
+    const encodedFilename = filename.replace(/\//g, '___');
+    
     if (!gist.files[encodedFilename]) {
       return { status: "error", message: "File not found" };
     }
-
+    
     return { status: "ok", code: gist.files[encodedFilename].content };
   } catch (err) {
     return { status: "error", message: err.message };
   }
 }
 
+// POST /delete - Delete a file (move to deleted folder)
 async function deleteFile(filename) {
   try {
     const gist = await fetchGist();
-    const encodedFilename = filename.replace(/\
-
+    const encodedFilename = filename.replace(/\//g, '___');
+    
     if (!gist.files[encodedFilename]) {
       return { status: "error", message: "File not found" };
     }
-
+    
+    // Get the file content
     const content = gist.files[encodedFilename].content;
-
+    
+    // Create new path in deleted folder with timestamp
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const deletedPath = `deleted/${filename}_${timestamp}`;
-    const deletedEncoded = deletedPath.replace(/\
-
+    const deletedEncoded = deletedPath.replace(/\//g, '___');
+    
     const files = {
-      [encodedFilename]: null, 
-      [deletedEncoded]: { content: content } 
+      [encodedFilename]: null, // Delete original
+      [deletedEncoded]: { content: content } // Move to deleted
     };
-
+    
     await updateGist(files);
-
+    
     return { status: "ok" };
   } catch (err) {
     return { status: "error", message: err.message };
   }
 }
 
+// POST /rename - Rename a file
 async function renameFile(oldName, newName) {
   try {
     const gist = await fetchGist();
-    const oldEncoded = oldName.replace(/\
-    const newEncoded = newName.replace(/\
-
+    const oldEncoded = oldName.replace(/\//g, '___');
+    const newEncoded = newName.replace(/\//g, '___');
+    
     if (!gist.files[oldEncoded]) {
       return { status: "error", message: "File not found" };
     }
-
+    
     if (gist.files[newEncoded]) {
       return { status: "error", message: "A file with that name already exists" };
     }
-
+    
     const content = gist.files[oldEncoded].content;
-
+    
     const files = {
-      [oldEncoded]: null, 
-      [newEncoded]: { content: content } 
+      [oldEncoded]: null, // Delete old
+      [newEncoded]: { content: content } // Create new
     };
-
+    
     await updateGist(files);
-
+    
     return { status: "ok" };
   } catch (err) {
     return { status: "error", message: err.message };
   }
 }
 
+// POST /delete-folder - Delete a folder and all its contents
 async function deleteFolder(folderPath) {
   try {
     const gist = await fetchGist();
-    const prefix = folderPath.replace(/\
-
+    const prefix = folderPath.replace(/\//g, '___') + '___';
+    
     const files = {};
-
+    
+    // Find all files that start with this folder path
     Object.keys(gist.files).forEach(filename => {
       if (filename.startsWith(prefix)) {
-        files[filename] = null; 
+        files[filename] = null; // Mark for deletion
       }
     });
-
+    
     if (Object.keys(files).length === 0) {
       return { status: "error", message: "Folder not found or empty" };
     }
-
+    
     await updateGist(files);
-
+    
     return { status: "ok" };
   } catch (err) {
     return { status: "error", message: err.message };
   }
 }
 
+// POST /rename-folder - Rename a folder
 async function renameFolder(oldName, newName) {
   try {
     const gist = await fetchGist();
-    const oldPrefix = oldName.replace(/\
-    const newPrefix = newName.replace(/\
-
+    const oldPrefix = oldName.replace(/\//g, '___') + '___';
+    const newPrefix = newName.replace(/\//g, '___') + '___';
+    
     const files = {};
-
+    
+    // Find all files in the old folder and recreate them in the new folder
     Object.keys(gist.files).forEach(filename => {
       if (filename.startsWith(oldPrefix)) {
         const content = gist.files[filename].content;
         const newFilename = filename.replace(oldPrefix, newPrefix);
-
-        files[filename] = null; 
-        files[newFilename] = { content: content }; 
+        
+        files[filename] = null; // Delete old
+        files[newFilename] = { content: content }; // Create new
       }
     });
-
+    
     if (Object.keys(files).length === 0) {
       return { status: "error", message: "Folder not found" };
     }
-
+    
     await updateGist(files);
-
+    
     return { status: "ok" };
   } catch (err) {
     return { status: "error", message: err.message };
   }
 }
 
+// ========== UPDATE YOUR EXISTING FUNCTIONS ==========
+
+// Replace the old saveCurrent function
 function saveCurrent() {
   document.getElementById("save-menu").style.display = "flex";
   refreshSaveLocationsList();
@@ -614,34 +654,36 @@ function closeSaveMenu() {
   document.getElementById("save-menu").style.display = "none";
 }
 
+// Replace refreshSaveLocationsList
 function refreshSaveLocationsList() {
   getSaves()
     .then(data => {
       const ul = document.getElementById("save-location-list");
       ul.innerHTML = "";
-
+      
+      // Add "Root" folder at the top
       const rootLi = document.createElement("li");
       rootLi.classList.add("folder-row");
-
+      
       const leftDiv = document.createElement("div");
       leftDiv.className = "left";
       leftDiv.style.paddingLeft = "0px";
-
+      
       const marker = document.createElement("span");
       marker.className = "toggle-marker";
       marker.textContent = "";
-
+      
       const nameSpan = document.createElement("span");
       nameSpan.className = "folder-name";
       nameSpan.textContent = "Root";
       nameSpan.style.fontWeight = "600";
-
+      
       leftDiv.appendChild(marker);
       leftDiv.appendChild(nameSpan);
-
+      
       const actionsDiv = document.createElement("div");
       actionsDiv.className = "folder-actions";
-
+      
       const saveBtn = document.createElement("button");
       saveBtn.textContent = "Save Here";
       saveBtn.classList.add("save-here-btn");
@@ -649,37 +691,37 @@ function refreshSaveLocationsList() {
         ev.stopPropagation(); 
         promptForFilenameAndSave("");
       });
-
+      
       actionsDiv.appendChild(saveBtn);
       rootLi.appendChild(leftDiv);
       rootLi.appendChild(actionsDiv);
       ul.appendChild(rootLi);
-
+      
       const entries = Array.isArray(data.files) ? data.files : [];
-
+      
       function renderFoldersOnly(list, parentPath = "", depth = 0) {
         const rows = [];
         const folders = (list || []).filter(e => e && (String(e.type || "").toLowerCase() === "folder" || Array.isArray(e.contents)));
-
+        
         folders.sort((a,b) => (a.name||"").localeCompare(b.name||""));
-
+        
         for (const dir of folders) {
           if (!dir || !dir.name) continue;
           if (dir.name === "deleted") continue;
-
+          
           const fullPath = parentPath ? `${parentPath}/${dir.name}` : dir.name;
-
+          
           const li = document.createElement("li");
           li.classList.add("folder-row");
-
+          
           const leftDiv = document.createElement("div");
           leftDiv.className = "left";
           leftDiv.style.paddingLeft = `${depth * INDENT_PX + INDENT_PX}px`;
-
+          
           const marker = document.createElement("span");
           marker.className = "toggle-marker";
           marker.textContent = openFolders.has(fullPath) ? "v" : ">";
-
+          
           const nameSpan = document.createElement("span");
           nameSpan.className = "folder-name";
           nameSpan.textContent = dir.name;
@@ -687,10 +729,10 @@ function refreshSaveLocationsList() {
 
           leftDiv.appendChild(marker);
           leftDiv.appendChild(nameSpan);
-
+          
           const actionsDiv = document.createElement("div");
           actionsDiv.className = "folder-actions";
-
+          
           const saveBtn = document.createElement("button");
           saveBtn.textContent = "Save Here";
           saveBtn.classList.add("save-here-btn");
@@ -698,28 +740,28 @@ function refreshSaveLocationsList() {
             ev.stopPropagation(); 
             promptForFilenameAndSave(fullPath);
           });
-
+          
           actionsDiv.appendChild(saveBtn);
           li.appendChild(leftDiv);
           li.appendChild(actionsDiv);
-
+          
           li.addEventListener("click", () => {
             if (openFolders.has(fullPath)) openFolders.delete(fullPath);
             else openFolders.add(fullPath);
             refreshSaveLocationsList();
           });
-
+          
           rows.push(li);
-
+          
           if (openFolders.has(fullPath) && Array.isArray(dir.contents)) {
             const childRows = renderFoldersOnly(dir.contents, fullPath, depth + 1);
             rows.push(...childRows);
           }
         }
-
+        
         return rows;
       }
-
+      
       const rows = renderFoldersOnly(entries, "", 0);
       rows.forEach(r => ul.appendChild(r));
     })
@@ -728,24 +770,25 @@ function refreshSaveLocationsList() {
     });
 }
 
+// Replace promptForFilenameAndSave
 function promptForFilenameAndSave(folderPath) {
   const code = editor.getValue();
   let filename = prompt("Enter a name for your file (without extension):");
-
+  
   if (!filename) return;
-
+  
   filename = filename.trim();
   if (!filename) {
     alert("Filename cannot be empty.");
     return;
   }
-
+  
   if (!filename.endsWith(".cpp")) {
     filename = filename + ".cpp";
   }
-
+  
   const fullPath = folderPath ? `${folderPath}/${filename}` : filename;
-
+  
   saveFile(fullPath, code, false)
     .then(res => {
       if (res.status === "ok") {
@@ -773,11 +816,13 @@ function promptForFilenameAndSave(folderPath) {
     });
 }
 
+// Replace openLoadMenu
 function openLoadMenu() {
   document.getElementById("load-menu").style.display = "flex";
   refreshSavesList();
 }
 
+// Replace refreshSavesList
 function refreshSavesList() {
   getSaves()
     .then(data => {
@@ -915,10 +960,11 @@ function refreshSavesList() {
     });
 }
 
+// Replace renameFolderUI
 function renameFolderUI(folderPath) {
   const newName = prompt(`Rename folder "${folderPath}" to (enter new name, no slashes):`);
   if (!newName) return;
-
+  
   renameFolder(folderPath, newName)
     .then(res => {
       if (res.status === "ok") refreshSavesList();
@@ -927,9 +973,10 @@ function renameFolderUI(folderPath) {
     .catch(e => alert("Rename error: " + e));
 }
 
+// Replace deleteFolderUI
 function deleteFolderUI(folderPath) {
   if (!confirm(`Delete folder "${folderPath}" and all its contents? This cannot be undone.`)) return;
-
+  
   deleteFolder(folderPath)
     .then(res => {
       if (res.status === "ok") refreshSavesList();
@@ -938,6 +985,7 @@ function deleteFolderUI(folderPath) {
     .catch(e => alert("Delete error: " + e));
 }
 
+// Replace loadSavedFile
 function loadSavedFile(filename) {
   loadFile(filename)
     .then(res => {
@@ -953,11 +1001,12 @@ function loadSavedFile(filename) {
     });
 }
 
+// Replace deleteSavedFile
 function deleteSavedFile(filename) {
   if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
     return;
   }
-
+  
   deleteFile(filename)
     .then(res => {
       if (res.status === "ok") {
@@ -971,6 +1020,7 @@ function deleteSavedFile(filename) {
     });
 }
 
+// Replace renameSavedFile
 function renameSavedFile(oldName) {
   let newName = prompt("Enter new name (without extension):", oldName.replace(/\.cpp$/, ""));
   if (!newName) return;
@@ -996,9 +1046,11 @@ function renameSavedFile(oldName) {
     });
 }
 
+// top-level (place once, outside the function)
 const openFolders = new Set();
 const INDENT_PX = 16;
 
+// ----------- 4) DOWNLOAD CURRENT EDITOR AS main.cpp -----------
 function randRange() {
   return Math.floor(Math.random() * (999999 - 100000 + 1)) + 100000;
 }
