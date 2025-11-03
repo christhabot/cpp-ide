@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Super cool c++</title>
+  <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.min.js"></script>
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
+  
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  
+  <script src="https://unpkg.com/monaco-editor@latest/min/vs/loader.js"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+</head>
+<body>
+  <div id="ide-container">
+    
+    <div id="code-pane">
+      
+      <div id="top-bar">
+        <button id="save-button">Save</button>
+        <button id="load-button">Load</button>
+        <button id="download-button">Download</button>
+      </div>
+
+      
+      <div id="run-group">
+        <span id="spinner" style="display: none;">⏳</span>
+        <button id="run-button">Run</button>
+      </div>
+
+      
+      <div id="editor-container"></div>
+    </div>
+
+    
+    <div id="side-pane">
+      <div id="input-pane">
+        <div class="label">Standard Input (cin):</div>
+        <textarea id="input" placeholder=""></textarea>
+      </div>
+      <div id="output-pane">
+        <div class="label">Output:</div>
+        <pre id="output-box"></pre>
+        <div id="runtime-label"></div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    #load-file-list { list-style: none; padding: 0; margin: 0; font-family: system-ui, sans-serif; }
+    #load-file-list li { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid rgba(0,0,0,0.05); }
+    #load-file-list li.folder-row { cursor: pointer; }
+    #load-file-list li .left { display:flex; align-items:center; gap:8px; flex: 1; }
+    .toggle-marker { width: 16px; display:inline-block; text-align:center; user-select:none; }
+    .file-name, .folder-name { user-select: none; }
+    .file-actions, .folder-actions { display: flex; gap:6px; }
+    .file-actions button, .folder-actions button { padding:4px 8px; font-size: 13px; cursor: pointer; }
+  </style>
+
+<div id="save-menu">
+  <div id="save-menu-box">
+    <button id="close-save-menu" onclick="closeSaveMenu()">X</button>
+    <h2>Choose Save Location</h2>
+    <ul id="save-location-list" class="file-list"></ul>
+  </div>
+</div>
+
+  
+  <script>
+    const initialCode = {{ initial_code | tojson }};
+  </script>
+
+  
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+  
+  <div id="load-menu">
+    <div id="load-menu-box">
+      <button id="close-load-menu">X</button>
+      <h2>Saved Files</h2>
+      <ul id="load-file-list"></ul>
+    </div>
+  </div>
+
+  <script>
+    let warnOnLeave = true;
+  
+    window.addEventListener("beforeunload", function (e) {
+      if (warnOnLeave) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    });
+  </script>
+
+  <script>
+  function isMobileDevice() {
+    return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    const sidePane = document.getElementById("side-pane");
+    if (isMobileDevice() && sidePane) {
+      sidePane.classList.add("hidden");
+    }
+  });
+</script>
+</body>
+</html>
