@@ -1,51 +1,51 @@
 let editor;
 
 // ----------- Initialize Monaco Editor -----------
-require.config({ paths: { vs: 'https://unpkg.com/monaco-editor@latest/min/vs' } });
+document.addEventListener('DOMContentLoaded', () => {
+  require.config({ paths: { vs: 'https://unpkg.com/monaco-editor@latest/min/vs' } });
+  
   require(["vs/editor/editor.main"], function () {
-    document.addEventListener("DOMContentLoaded", () => {
-      require(["vs/editor/editor.main"], function () {
-          editor = monaco.editor.create(document.getElementById("editor-container"), {
-              value: initialCode,
-              language: "cpp",
-              theme: "vs-dark",
-              automaticLayout: true,
-              fontSize: 14,
-              minimap: { enabled: false },
-              mouseWheelZoom: true   
-          });
-      });
-  });
+    
+    editor = monaco.editor.create(document.getElementById("editor-container"), {
+      value: initialCode,
+      language: "cpp",
+      theme: "vs-dark",
+      automaticLayout: true,
+      fontSize: 14,
+      minimap: { enabled: false },
+      mouseWheelZoom: true   
+    });
+    
+    // Touch zoom code
+    let lastTouchDistance = null;
 
-  let lastTouchDistance = null;
-
-  function getTouchDistance(e) {
-    if (e.touches.length < 2) return null;
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  document.getElementById("editor-container").addEventListener("touchmove", (e) => {
-    const distance = getTouchDistance(e);
-    if (!distance) return;
-
-    if (lastTouchDistance) {
-      const delta = distance - lastTouchDistance;
-      if (Math.abs(delta) > 5) { // sensitivity
-        let fontSize = editor.getOption(monaco.editor.EditorOption.fontSize);
-        fontSize += delta > 0 ? 1 : -1;
-        fontSize = Math.max(8, Math.min(40, fontSize)); // clamp range
-        editor.updateOptions({ fontSize });
-      }
+    function getTouchDistance(e) {
+      if (e.touches.length < 2) return null;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
     }
-    lastTouchDistance = distance;
-  }, { passive: true });
 
-  document.getElementById("editor-container").addEventListener("touchend", () => {
-    lastTouchDistance = null;
+    document.getElementById("editor-container").addEventListener("touchmove", (e) => {
+      const distance = getTouchDistance(e);
+      if (!distance) return;
+
+      if (lastTouchDistance) {
+        const delta = distance - lastTouchDistance;
+        if (Math.abs(delta) > 5) {
+          let fontSize = editor.getOption(monaco.editor.EditorOption.fontSize);
+          fontSize += delta > 0 ? 1 : -1;
+          fontSize = Math.max(8, Math.min(40, fontSize));
+          editor.updateOptions({ fontSize });
+        }
+      }
+      lastTouchDistance = distance;
+    }, { passive: true });
+
+    document.getElementById("editor-container").addEventListener("touchend", () => {
+      lastTouchDistance = null;
+    });
   });
-
 });
 
 // ----------- Button Event Listeners -----------
@@ -367,23 +367,29 @@ function passwordPrompt(message) {
 }
 
 let password, GITHUB_TOKEN;
+
 (async () => {
-  password = await document.addEventListener("DOMContentLoaded", () => {
-      passwordPrompt("Enter password");
-  });
-
-  const key = password + "Jh1QcY"; // like your original derivation
+  // Wait for DOM to be ready first
+  if (document.readyState === 'loading') {
+    await new Promise(resolve => {
+      document.addEventListener('DOMContentLoaded', resolve, { once: true });
+    });
+  }
+  
+  // NOW prompt for password
+  password = await passwordPrompt("Enter password");
+  console.log("password", password); // This should now show the actual password
+  
+  const key = password + "Jh1QcY";
   const cipherBase64 = "H9Ib1iJLFXwjgvoe1rV6YZvln92KVH9nSJwdgMgXFs86Q6Aly8nYxUx9AI02zF7M";
-
   const decrypted = CryptoJS.AES.decrypt(cipherBase64, CryptoJS.enc.Utf8.parse(key), {
     mode: CryptoJS.mode.CBC,
     padding: CryptoJS.pad.Pkcs7,
-    iv: CryptoJS.enc.Hex.parse('00000000000000000000000000000000') // zero IV
+    iv: CryptoJS.enc.Hex.parse('00000000000000000000000000000000')
   });
-
   const plainText = decrypted.toString(CryptoJS.enc.Utf8);
-
   GITHUB_TOKEN = plainText;
+  console.log("GITHUB_TOKEN", GITHUB_TOKEN); // Should now show the decrypted token
 })();
 
 const GIST_ID = "10caccb12fdfbaae95a3488c9778136b";
