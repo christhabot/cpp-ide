@@ -624,31 +624,51 @@ async function deleteFolder(folderPath) {
 }
 
 // POST /rename-folder - Rename a folder
-async function renameFolder(oldName, newName) {
+async function renameFolder(oldFolder, newFolderInput) {
   try {
     const gist = await fetchGist();
-    const oldPrefix = oldName.replace(/\//g, '___') + '___';
-    const newPrefix = newName.replace(/\//g, '___') + '___';
-    
+
+    // Split old folder path and get parent
+    const oldParts = oldFolder.split('/');
+    const oldFolderName = oldParts.pop(); // last part = folder being renamed
+    const parentParts = oldParts; // parent path parts
+
+    // Resolve new folder path relative to parent
+    const newPartsRaw = newFolderInput.split('/');
+    const newParts = [...parentParts]; // start from parent
+
+    for (let part of newPartsRaw) {
+      if (part === '..') {
+        if (newParts.length > 0) newParts.pop(); // go up one
+      } else if (part && part !== '.') {
+        newParts.push(part);
+      }
+    }
+
+    const newFolder = newParts.join('/');
+
+    // Convert to gist filename encoding
+    const encodePath = path => path.split('/').join('___') + '___';
+    const oldPrefix = encodePath(oldFolder);
+    const newPrefix = encodePath(newFolder);
+
     const files = {};
-    
-    // Find all files in the old folder and recreate them in the new folder
+
     Object.keys(gist.files).forEach(filename => {
       if (filename.startsWith(oldPrefix)) {
         const content = gist.files[filename].content;
         const newFilename = filename.replace(oldPrefix, newPrefix);
-        
-        files[filename] = null; // Delete old
-        files[newFilename] = { content: content }; // Create new
+
+        files[filename] = null; // delete old
+        files[newFilename] = { content }; // create new
       }
     });
-    
+
     if (Object.keys(files).length === 0) {
       return { status: "error", message: "Folder not found" };
     }
-    
+
     await updateGist(files);
-    
     return { status: "ok" };
   } catch (err) {
     return { status: "error", message: err.message };
@@ -975,10 +995,10 @@ function refreshSavesList() {
 
 // Replace renameFolderUI
 function renameFolderUI(folderPath) {
-  const newName = prompt(`Rename folder "${folderPath}" to (enter new name, no slashes):`);
-  if (!newName) return;
-  
-  renameFolder(folderPath, newName)
+  const newPath = prompt(`Rename folder "${folderPath}" to (can be relative like "../newName" or nested like "foo/bar"):`)
+  if (!newPath) return;
+
+  renameFolder(folderPath, newPath)
     .then(res => {
       if (res.status === "ok") refreshSavesList();
       else alert("Rename failed: " + res.message);
