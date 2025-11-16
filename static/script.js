@@ -375,25 +375,31 @@ let password, GITHUB_TOKEN;
     });
   }
 
-  // 1️⃣ Try to get stored credentials first
-  let creds = await navigator.credentials.get({ password: true, mediation: "optional" });
-  if (creds && creds.password) {
-    password = creds.password;
-    console.log("Loaded password from secure storage");
-  } else {
-    // 2️⃣ Prompt user if no credentials saved
-    password = await passwordPrompt("Enter password");
+  // ✅ Feature detection
+  const supportsCredentials = 'credentials' in navigator;
 
-    // 3️⃣ Store it securely in the browser vault
-    try {
-      await navigator.credentials.store(new PasswordCredential({
-        id: "github_user",   // can be any identifier
-        password: password
-      }));
-      console.log("Password stored securely in browser vault");
-    } catch (e) {
-      console.warn("Could not store credentials securely:", e);
+  if (supportsCredentials) {
+    // Try to get stored password
+    let creds = await navigator.credentials.get({ password: true, mediation: "optional" });
+    if (creds && creds.password) {
+      password = creds.password;
+      console.log("Loaded password from secure storage");
+    } else {
+      // Prompt user and store it
+      password = await passwordPrompt("Enter password");
+      try {
+        await navigator.credentials.store(new PasswordCredential({
+          id: "super-cool-cpp-ide-user",
+          password: password
+        }));
+        console.log("Password stored securely in browser vault");
+      } catch (e) {
+        console.warn("Could not store credentials securely:", e);
+      }
     }
+  } else {
+    password = await passwordPrompt("Enter password");
+    console.log("Navigator.credentials not supported; prompting each time");
   }
 
   // 🔑 Decrypt your GitHub token as before
