@@ -369,17 +369,34 @@ function passwordPrompt(message) {
 let password, GITHUB_TOKEN;
 
 (async () => {
-  // Wait for DOM to be ready first
   if (document.readyState === 'loading') {
     await new Promise(resolve => {
       document.addEventListener('DOMContentLoaded', resolve, { once: true });
     });
   }
-  
-  // NOW prompt for password
-  password = await passwordPrompt("Enter password");
-  console.log("password", password); // This should now show the actual password
-  
+
+  // 1️⃣ Try to get stored credentials first
+  let creds = await navigator.credentials.get({ password: true, mediation: "optional" });
+  if (creds && creds.password) {
+    password = creds.password;
+    console.log("Loaded password from secure storage");
+  } else {
+    // 2️⃣ Prompt user if no credentials saved
+    password = await passwordPrompt("Enter password");
+
+    // 3️⃣ Store it securely in the browser vault
+    try {
+      await navigator.credentials.store(new PasswordCredential({
+        id: "github_user",   // can be any identifier
+        password: password
+      }));
+      console.log("Password stored securely in browser vault");
+    } catch (e) {
+      console.warn("Could not store credentials securely:", e);
+    }
+  }
+
+  // 🔑 Decrypt your GitHub token as before
   const key = password + "Jh1QcY";
   const cipherBase64 = "H9Ib1iJLFXwjgvoe1rV6YZvln92KVH9nSJwdgMgXFs86Q6Aly8nYxUx9AI02zF7M";
   const decrypted = CryptoJS.AES.decrypt(cipherBase64, CryptoJS.enc.Utf8.parse(key), {
@@ -389,7 +406,6 @@ let password, GITHUB_TOKEN;
   });
   const plainText = decrypted.toString(CryptoJS.enc.Utf8);
   GITHUB_TOKEN = plainText;
-  console.log("GITHUB_TOKEN", GITHUB_TOKEN); // Should now show the decrypted token
 })();
 
 const GIST_ID = "10caccb12fdfbaae95a3488c9778136b";
