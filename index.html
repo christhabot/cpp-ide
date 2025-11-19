@@ -66,6 +66,7 @@
     <button id="close-save-menu" onclick="closeSaveMenu()">X</button>
     <h2>Choose Save Location</h2>
     <ul id="save-location-list" class="file-list"></ul>
+    <button id="codeforces-save-btn" class="codeforces-save">Autosave by codeforces link</button>
   </div>
 </div>
 
@@ -116,5 +117,24 @@ int main()
   });
 </script>
 <script src="static/script.js"></script>
+<style>
+  .codeforces-save {
+  width: 100%;          /* takes full width of the parent container */
+  padding: 10px 20px;   /* top/bottom and left/right padding */
+  box-sizing: border-box; /* includes padding in width calculation so it doesn’t overflow */
+  display: block;       /* makes sure width:100% works */
+  background-color: #007ACC;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+  margin-top: 10px;
+}
+.codeforces-save:hover {
+  background-color: #005a9e;
+}
+</style>
 </body>
 </html>

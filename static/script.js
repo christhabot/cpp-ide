@@ -57,6 +57,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("close-load-menu").addEventListener("click", () => {
     document.getElementById("load-menu").style.display = "none";
   });
+  document.getElementById("codeforces-save-btn").addEventListener("click", codeforcesSave)
+
 });
 // ----------- 1) RUN CODE -----------
 
@@ -511,9 +513,44 @@ async function getSaves() {
   }
 }
 
+function sanitizeFilename(name) {
+    const INVALID_CHARS = /[<>:"/\\|?*]/g;
+
+    const WINDOWS_RESERVED = new Set([
+        "CON", "PRN", "AUX", "NUL",
+        ...Array.from({ length: 9 }, (_, i) => `COM${i + 1}`),
+        ...Array.from({ length: 9 }, (_, i) => `LPT${i + 1}`)
+    ]);
+
+    // Extract the base filename (strip directories)
+    let base = name.split(/[/\\]/).pop() || "";
+
+    // Replace invalid characters with spaces
+    base = base.replace(INVALID_CHARS, " ");
+
+    // Split into root + extension
+    const parts = base.split(".");
+    const root = parts[0];
+
+    // Handle empty names, ".", ".."
+    if (!root || base === "." || base === "..") {
+        return "illegal name";
+    }
+
+    // Reserved name check (match only if entire root matches)
+    if (WINDOWS_RESERVED.has(root.toUpperCase())) {
+        parts[0] = "illegal name";
+        return parts.join(".");
+    }
+
+    return parts.join(".");
+}
+
+
 // POST /save - Save a file
 async function saveFile(filename, code, overwrite = false) {
   try {
+    filename = sanitizeFilename(filename);
     const gist = await fetchGist();
     
     // Check if file exists
@@ -540,6 +577,107 @@ async function saveFile(filename, code, overwrite = false) {
     return { status: "error", message: err.message };
   }
 }
+
+async function codeforcesSave() {
+  const url = prompt("Enter Codeforces problem URL:");
+  const pat = url.match(/contest\/(\d+)\/problem\/([A-Za-z0-9]+)/i) || url.match(/problemset\/problem\/(\d+)\/([A-Za-z0-9]+)/i);
+  if (!pat) {
+    console.log("invalid url");
+    return;
+  }
+
+  const contestId = pat[1];
+  const index = pat[2].toUpperCase();
+
+  try {
+    const res = await fetch(`https://codeforces.com/api/contest.standings?contestId=${contestId}&from=1&count=1&lang=en`);
+    const data = await res.json();
+
+    if (!data || data.status !== "OK" || !data.result || !data.result.contest) {
+      console.log("cf api error");
+      return;
+    }
+
+    const contestName = String(data.result.contest.name || "");
+    const lower = contestName.toLowerCase();
+
+    let contestType = "unknown";
+    if (lower.includes("global")) {
+      contestType = "global";
+    } else if (lower.includes("testing")) {
+      contestType = "testing rounds";
+    } else if (lower.includes("educational")) {
+      contestType = "educational";
+    } else {
+      const divRegex = /Div\.?\s*([0-9]+)/gi;
+      const nums = [];
+      let m;
+      while ((m = divRegex.exec(contestName)) !== null) {
+        nums.push(m[1]);
+      }
+      if (nums.length > 0) {
+        contestType = "div " + nums.join("+");
+      } else {
+        contestType = "unknown";
+      }
+    }
+
+    const roundMatch = contestName.match(/Round\s+(\d+)/i);
+    const contestNumber = roundMatch ? roundMatch[1] : "unknown";
+
+    const problemsList = data.result.problems || [];
+    const problem = problemsList.find((p) => String(p.index).toUpperCase() === index);
+
+    let problemName = problem ? String(problem.name).trim() : "unknown";
+
+    const looksForeign = /[^\u0000-\u007F]/.test(problemName);
+    const looksEmpty = problemName === "unknown" || problemName.length < 2;
+
+    if (looksForeign || looksEmpty) {
+      const manual = prompt("The problem name looks non-English or unknown. Please enter the English problem name:");
+      if (manual && manual.trim().length > 0) {
+        problemName = manual.trim();
+      }
+    }
+
+    console.log(contestType);
+    console.log(contestNumber);
+    console.log(problemName.toLowerCase());
+    
+    const fullPath = `codeforces/single problem upsolve/${contestType}/${contestNumber}/${problemName.toLowerCase()}.cpp`;
+    const code = editor.getValue();
+
+    // Keep the .then() chain like your working code, but add .catch()
+    saveFile(fullPath, code, false)
+      .then(res => {
+        if (res.status === "ok") {
+          alert(`Saved as ${res.filename}`);
+          closeSaveMenu();
+        } else if (res.status === "exists") {
+          const shouldOverwrite = confirm(`${res.message}`);
+          if (shouldOverwrite) {
+            return saveFile(fullPath, code, true); // Return the promise
+          }
+        } else {
+          alert("Error saving: " + res.message);
+        }
+      })
+      .then(res2 => {
+        if (res2 && res2.status === "ok") {
+          alert(`Overwritten and saved as ${res2.filename}`);
+          closeSaveMenu();
+        } else if (res2 && res2.status !== "ok") {
+          alert("Error saving: " + res2.message);
+        }
+      })
+      .catch(err => {
+        alert("Error: " + err);
+      });
+  } catch (err) {
+    console.log("error:", err?.message ?? err);
+  }
+}
+
 
 // GET /load - Load a file
 async function loadFile(filename) {
