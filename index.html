@@ -22,6 +22,7 @@
       
       <div id="top-bar">
         <button id="save-button">Save</button>
+        <button id="cf-menu-button">Autosaves</button>
         <button id="load-button">Load</button>
         <button id="download-button">Download</button>
       </div>
@@ -61,14 +62,26 @@
     .file-actions button, .folder-actions button { padding:4px 8px; font-size: 13px; cursor: pointer; }
   </style>
 
-<div id="save-menu">
-  <div id="save-menu-box">
-    <button id="close-save-menu" onclick="closeSaveMenu()">X</button>
-    <h2>Choose Save Location</h2>
-    <ul id="save-location-list" class="file-list"></ul>
-    <button id="codeforces-save-btn" class="codeforces-save">Autosave by codeforces link</button>
+  <div id="save-menu">
+    <div id="save-menu-box">
+      <button id="close-save-menu" onclick="closeSaveMenu()">X</button>
+      <h2>Choose Save Location</h2>
+      <ul id="save-location-list" class="file-list"></ul>
+    </div>
   </div>
-</div>
+
+  <!-- Codeforces Menu -->
+  <div id="cf-menu" class="menu-bg2" style="display: none;">
+    <div class="menu-container">
+      <button id="close-cf-menu" class="close-menu-btn">X</button>
+      <h2>Autosave Actions</h2>
+
+      <!-- AUTO GENERATED BUTTON LIST GOES HERE -->
+      <div id="cf-button-list"></div>
+
+    </div>
+  </div>
+
 
   
   <script>

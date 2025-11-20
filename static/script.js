@@ -1,5 +1,10 @@
 let editor;
 
+const CF_ACTIONS = [
+  { name: "Codeforces single problem upsolve", func: codeforcesSingleSave },
+  { name: "Codeforces contest", func: codeforcesContestSave },
+];
+
 // ----------- Initialize Monaco Editor -----------
 document.addEventListener('DOMContentLoaded', () => {
   require.config({ paths: { vs: 'https://unpkg.com/monaco-editor@latest/min/vs' } });
@@ -57,8 +62,26 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("close-load-menu").addEventListener("click", () => {
     document.getElementById("load-menu").style.display = "none";
   });
-  document.getElementById("codeforces-save-btn").addEventListener("click", codeforcesSave)
+  // Open menu
+  document.getElementById("cf-menu-button").addEventListener("click", () => {
+    document.getElementById("cf-menu").style.display = "flex";
+  });
 
+  // Close menu
+  document.getElementById("close-cf-menu").addEventListener("click", () => {
+    document.getElementById("cf-menu").style.display = "none";
+  });
+
+  // Auto-generate the internal buttons
+  const cfList = document.getElementById("cf-button-list");
+
+  CF_ACTIONS.forEach(action => {
+    const btn = document.createElement("button");
+    btn.textContent = action.name;
+    btn.className = "codeforces-save"; // SAME STYLE as your current CF button
+    btn.addEventListener("click", action.func);
+    cfList.appendChild(btn);
+  });
 });
 // ----------- 1) RUN CODE -----------
 
@@ -574,103 +597,110 @@ async function saveFile(filename, code, overwrite = false) {
   }
 }
 
-async function codeforcesSave() {
-  const url = prompt("Enter Codeforces problem URL:");
+// Helper function to fetch Codeforces info
+async function getCodeforcesProblemInfo(url) {
   const pat = url.match(/contest\/(\d+)\/problem\/([A-Za-z0-9]+)/i) || url.match(/problemset\/problem\/(\d+)\/([A-Za-z0-9]+)/i);
-  if (!pat) {
-    console.log("invalid url");
-    return;
-  }
+  if (!pat) throw new Error("Invalid URL");
 
   const contestId = pat[1];
   const index = pat[2].toUpperCase();
 
+  const res = await fetch(`https://codeforces.com/api/contest.standings?contestId=${contestId}&from=1&count=1&lang=en`);
+  const data = await res.json();
+
+  if (!data || data.status !== "OK" || !data.result || !data.result.contest) {
+    throw new Error("CF API error");
+  }
+
+  const contestName = String(data.result.contest.name || "");
+  const lower = contestName.toLowerCase();
+
+  let contestType = "unknown";
+  if (lower.includes("global")) {
+    contestType = "global";
+  } else if (lower.includes("testing")) {
+    contestType = "testing rounds";
+  } else if (lower.includes("educational")) {
+    contestType = "educational";
+  } else {
+    const divRegex = /Div\.?\s*([0-9]+)/gi;
+    const nums = [];
+    let m;
+    while ((m = divRegex.exec(contestName)) !== null) nums.push(m[1]);
+    if (nums.length > 0) contestType = "div " + nums.join("+");
+  }
+
+  const roundMatch = contestName.match(/Round\s+(\d+)/i);
+  const contestNumber = roundMatch ? roundMatch[1] : "unknown";
+
+  const problemsList = data.result.problems || [];
+  let problem = problemsList.find((p) => String(p.index).toUpperCase() === index);
+  let problemName = problem ? String(problem.name).trim() : "unknown";
+
+  const looksForeign = /[^\u0000-\u007F]/.test(problemName);
+  const looksEmpty = problemName === "unknown" || problemName.length < 2;
+
+  if (looksForeign || looksEmpty) {
+    const manual = prompt("The problem name looks non-English or unknown. Please enter the English problem name:");
+    if (manual && manual.trim().length > 0) problemName = manual.trim();
+  }
+
+  return { contestId, contestType, contestNumber, problemName: problemName.toLowerCase() };
+}
+
+// Function for single problem save
+async function codeforcesSingleSave() {
   try {
-    const res = await fetch(`https://codeforces.com/api/contest.standings?contestId=${contestId}&from=1&count=1&lang=en`);
-    const data = await res.json();
+    const url = prompt("Enter Codeforces problem URL:");
+    const info = await getCodeforcesProblemInfo(url);
 
-    if (!data || data.status !== "OK" || !data.result || !data.result.contest) {
-      console.log("cf api error");
-      return;
-    }
-
-    const contestName = String(data.result.contest.name || "");
-    const lower = contestName.toLowerCase();
-
-    let contestType = "unknown";
-    if (lower.includes("global")) {
-      contestType = "global";
-    } else if (lower.includes("testing")) {
-      contestType = "testing rounds";
-    } else if (lower.includes("educational")) {
-      contestType = "educational";
-    } else {
-      const divRegex = /Div\.?\s*([0-9]+)/gi;
-      const nums = [];
-      let m;
-      while ((m = divRegex.exec(contestName)) !== null) {
-        nums.push(m[1]);
-      }
-      if (nums.length > 0) {
-        contestType = "div " + nums.join("+");
-      } else {
-        contestType = "unknown";
-      }
-    }
-
-    const roundMatch = contestName.match(/Round\s+(\d+)/i);
-    const contestNumber = roundMatch ? roundMatch[1] : "unknown";
-
-    const problemsList = data.result.problems || [];
-    const problem = problemsList.find((p) => String(p.index).toUpperCase() === index);
-
-    let problemName = problem ? String(problem.name).trim() : "unknown";
-
-    const looksForeign = /[^\u0000-\u007F]/.test(problemName);
-    const looksEmpty = problemName === "unknown" || problemName.length < 2;
-
-    if (looksForeign || looksEmpty) {
-      const manual = prompt("The problem name looks non-English or unknown. Please enter the English problem name:");
-      if (manual && manual.trim().length > 0) {
-        problemName = manual.trim();
-      }
-    }
-
-    console.log(contestType);
-    console.log(contestNumber);
-    console.log(problemName.toLowerCase());
-    
-    const fullPath = `codeforces/single problem upsolve/${contestType}/${contestNumber}/${problemName.toLowerCase()}.cpp`;
+    const fullPath = `codeforces/single problem upsolve/${info.contestType}/${info.contestNumber}/${info.problemName}.cpp`;
     const code = editor.getValue();
 
-    // Keep the .then() chain like your working code, but add .catch()
     saveFile(fullPath, code, false)
-      .then(res => {
-        if (res.status === "ok") {
-          alert(`Saved as ${res.filename}`);
-          closeSaveMenu();
-        } else if (res.status === "exists") {
-          const shouldOverwrite = confirm(`${res.message}`);
-          if (shouldOverwrite) {
-            return saveFile(fullPath, code, true); // Return the promise
-          }
-        } else {
-          alert("Error saving: " + res.message);
-        }
-      })
-      .then(res2 => {
-        if (res2 && res2.status === "ok") {
+      .then(res => handleSaveResponse(res, fullPath, code))
+      .catch(err => alert("Error: " + err));
+  } catch (err) {
+    console.log(err.message);
+  }
+}
+
+// Function for contest problem save
+async function codeforcesContestSave() {
+  try {
+    const url = prompt("Enter Codeforces problem URL:");
+    const info = await getCodeforcesProblemInfo(url);
+
+    const fullPath = `codeforces/contests/${info.contestType}/${info.contestNumber}/${info.problemName}.cpp`;
+    const code = editor.getValue();
+
+    saveFile(fullPath, code, false)
+      .then(res => handleSaveResponse(res, fullPath, code))
+      .catch(err => alert("Error: " + err));
+  } catch (err) {
+    console.log(err.message);
+  }
+}
+
+// Helper to handle save response with overwrite logic
+function handleSaveResponse(res, fullPath, code) {
+  if (res.status === "ok") {
+    alert(`Saved as ${res.filename}`);
+    closeSaveMenu();
+  } else if (res.status === "exists") {
+    const shouldOverwrite = confirm(`${res.message}`);
+    if (shouldOverwrite) {
+      return saveFile(fullPath, code, true).then(res2 => {
+        if (res2.status === "ok") {
           alert(`Overwritten and saved as ${res2.filename}`);
           closeSaveMenu();
-        } else if (res2 && res2.status !== "ok") {
+        } else {
           alert("Error saving: " + res2.message);
         }
-      })
-      .catch(err => {
-        alert("Error: " + err);
       });
-  } catch (err) {
-    console.log("error:", err?.message ?? err);
+    }
+  } else {
+    alert("Error saving: " + res.message);
   }
 }
 
