@@ -513,37 +513,33 @@ async function getSaves() {
   }
 }
 
-function sanitizeFilename(name) {
-    const INVALID_CHARS = /[<>:"/\\|?*]/g;
-
+function sanitizeFilename(path) {
+    const INVALID_CHARS = /[<>:"|?*]/g; // leave slashes untouched
     const WINDOWS_RESERVED = new Set([
         "CON", "PRN", "AUX", "NUL",
         ...Array.from({ length: 9 }, (_, i) => `COM${i + 1}`),
-        ...Array.from({ length: 9 }, (_, i) => `LPT${i + 1}`)
+        ...Array.from({ length: 9 }, (_, i) => `LPT${i + 1}`),
     ]);
 
-    // Extract the base filename (strip directories)
-    let base = name.split(/[/\\]/).pop() || "";
+    // Replace invalid characters everywhere except slashes
+    let sanitized = path.replace(INVALID_CHARS, " ");
 
-    // Replace invalid characters with spaces
-    base = base.replace(INVALID_CHARS, " ");
+    // Extract last segment for reserved name check
+    const lastSlashIndex = Math.max(sanitized.lastIndexOf("/"), sanitized.lastIndexOf("\\"));
+    const lastSegment = lastSlashIndex >= 0 ? sanitized.slice(lastSlashIndex + 1) : sanitized;
 
-    // Split into root + extension
-    const parts = base.split(".");
+    // Split last segment into root + extension
+    const parts = lastSegment.split(".");
     const root = parts[0];
 
-    // Handle empty names, ".", ".."
-    if (!root || base === "." || base === "..") {
-        return "illegal name";
-    }
-
-    // Reserved name check (match only if entire root matches)
+    // Check reserved names
     if (WINDOWS_RESERVED.has(root.toUpperCase())) {
         parts[0] = "illegal name";
-        return parts.join(".");
+        // Rebuild sanitized path with the replaced filename
+        sanitized = (lastSlashIndex >= 0 ? sanitized.slice(0, lastSlashIndex + 1) : "") + parts.join(".");
     }
 
-    return parts.join(".");
+    return sanitized;
 }
 
 
