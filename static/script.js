@@ -131,7 +131,7 @@ function runCode() {
     },
     body: JSON.stringify({
       language_id: 54,
-      compiler_options: "-O2 -DONLINE_JUDGE",
+      compiler_options: "-O2 -DONLINE_JUDGE -std=c++17",
       source_code: encodedCode,
       playground_hash: "NON_LOGGED_IN_HASH",
       stdin: encodedInput,
