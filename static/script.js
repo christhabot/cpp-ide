@@ -3,6 +3,7 @@ let editor;
 const CF_ACTIONS = [
   { name: "Codeforces single problem upsolve", func: codeforcesSingleSave },
   { name: "Codeforces contest", func: codeforcesContestSave },
+  { name: "AtCoder contest", func: atcoderContestSave },
 ];
 
 // ----------- Initialize Monaco Editor -----------
@@ -678,6 +679,40 @@ async function codeforcesContestSave() {
       .then(res => handleSaveResponse(res, fullPath, code))
       .catch(err => alert("Error: " + err));
   } catch (err) {
+    console.log(err.message);
+  }
+}
+
+async function atcoderContestSave() {
+  try {
+    const url = prompt("Enter AtCoder problem URL:");
+    const probName = prompt("Enter problem name:");
+    const contest = url.match(/contests\/([^/]+)/)[1];
+    const prefix = contest.substring(0, 3).toLowerCase();
+    switch (prefix) {
+        case 'arc':
+            contestType = 'regular';
+            break;
+        case 'abc':
+            contestType = 'beginner';
+            break;
+        case 'ahc':
+            contestType = 'heuristic';
+            break;
+        case 'agc':
+            contestType = 'grand';
+            break;
+        default:
+            contestType = 'unknown';
+    }
+    const contestNum = contest.substring(3, 6);
+    const fullPath = `atcoder/contests/${contestType}/${contestNum}/${probName}.cpp`;
+    const code = editor.getValue();
+    saveFile(fullPath, code, false)
+      .then(res => handleSaveResponse(res, fullPath, code))
+      .catch(err => alert("Error: " + err));
+  }
+  catch (err) {
     console.log(err.message);
   }
 }
