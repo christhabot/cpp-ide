@@ -683,10 +683,20 @@ async function codeforcesContestSave() {
   }
 }
 
+async function corsBypass(url) { 
+  const proxyUrl = "https://api.codetabs.com/v1/proxy/?quest=" + encodeURIComponent(url);
+  const response = await fetch(proxyUrl);
+  return await response.text();
+}
+
 async function atcoderContestSave() {
   try {
     const url = prompt("Enter AtCoder problem URL:");
-    const probName = prompt("Enter problem name:");
+    // const probName = prompt("Enter problem name:");
+    const htmlString = await corsBypass(url);
+    const doc = new DOMParser().parseFromString(htmlString, "text/html");
+    const title = doc.querySelector("title")?.textContent;
+    const probName = title ? title.split("-").pop().trim().toLowerCase() : "unknown";
     const contest = url.match(/contests\/([^/]+)/)[1];
     const prefix = contest.substring(0, 3).toLowerCase();
     switch (prefix) {
