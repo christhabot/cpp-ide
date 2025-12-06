@@ -689,14 +689,66 @@ async function corsBypass(url) {
   return await response.text();
 }
 
-async function atcoderContestSave() {
+async function getTitleViaCors(url) {
   try {
-    const url = prompt("Enter AtCoder problem URL:");
     // const probName = prompt("Enter problem name:");
     const htmlString = await corsBypass(url);
     const doc = new DOMParser().parseFromString(htmlString, "text/html");
-    const title = doc.querySelector("title")?.textContent;
-    const probName = title ? title.split("-").pop().trim().toLowerCase() : "unknown";
+    const title = doc.querySelector("title")?.textContent || "";
+    return title;
+  } catch {
+    return "";
+  }
+}
+
+async function getTitleFromExtension(url) {
+  if (!window.chrome?.runtime) return null;
+
+  return new Promise(resolve => {
+    chrome.runtime.sendMessage(
+      EXTENSION_ID,
+      { type: "getAtCoderTitle", url },
+      response => resolve(response?.title || null)
+    );
+  });
+}
+
+const EXTENSION_ID = "bfmgaklgifkhephcoanmjfnhhpnldkbe";
+
+async function getTitleFromExtension(url) {
+  return new Promise(resolve => {
+    chrome.runtime.sendMessage(
+      EXTENSION_ID,
+      { type: "getAtCoderTitle", url },
+      response => {
+        resolve(response?.title || null);
+      }
+    );
+  });
+}
+
+async function atcoderContestSave() {
+  try {
+    const url = prompt("Enter AtCoder problem URL:");
+    if (!url) return;
+
+    let rawTitle = await getTitleViaCors(url);
+
+    if (!rawTitle || rawTitle.includes("404")) {
+      console.log("extension getting");
+      const extTitle = await getTitleFromExtension(url);
+      if (extTitle) rawTitle = extTitle;
+    }
+    else
+    {
+      console.log("cors getting");
+    }
+
+    const probName = rawTitle
+      ? rawTitle.split(/-(.+)/).slice(1).join("").trim().toLowerCase()
+      : "unknown";
+
+    let contestType;
     const contest = url.match(/contests\/([^/]+)/)[1];
     const prefix = contest.substring(0, 3).toLowerCase();
     switch (prefix) {
