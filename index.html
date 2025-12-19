@@ -85,16 +85,17 @@
 
   
   <script>
-    const initialCode = `#include <bits/stdc++.h>
+    let initialCode = "";
 
-using namespace std;
-
-typedef long long ll;
-
-int main() 
-{
-    
-}`;
+    fetch("./static/template.cpp")
+      .then(response => {
+        if (!response.ok) throw new Error("File not found");
+        return response.text();
+      })
+      .then(text => {
+        initialCode = text;
+      })
+      .catch(err => console.error(err));
   </script>
 
   
