@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
       minimap: { enabled: false },
       mouseWheelZoom: true   
     });
+    editor.addCommand( monaco.KeyMod.CtrlCmd | monaco.KeyCode.Digit0, () => { editor.trigger("keyboard", "editor.action.fontZoomReset", {}); } );
     
     // Touch zoom code
     let lastTouchDistance = null;
