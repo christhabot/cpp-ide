@@ -1,9 +1,11 @@
 let editor;
 
 const CF_ACTIONS = [
+  { name: "Auto autosave", func: everythingSave },
   { name: "Codeforces single problem upsolve", func: codeforcesSingleSave },
   { name: "Codeforces contest", func: codeforcesContestSave },
   { name: "AtCoder contest", func: atcoderContestSave },
+  { name: "Atcoder single problem upsolve", func: atcoderSingleSave },
 ];
 
 // ----------- Initialize Monaco Editor -----------
@@ -81,7 +83,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const btn = document.createElement("button");
     btn.textContent = action.name;
     btn.className = "codeforces-save"; // SAME STYLE as your current CF button
-    btn.addEventListener("click", action.func);
+    btn.addEventListener("click", () => action.func());
     cfList.appendChild(btn);
   });
 });
@@ -651,9 +653,9 @@ async function getCodeforcesProblemInfo(url) {
 }
 
 // Function for single problem save
-async function codeforcesSingleSave() {
+async function codeforcesSingleSave(url = "") {
   try {
-    const url = prompt("Enter Codeforces problem URL:");
+    if (!url) url = prompt("Enter Codeforces problem URL:");
     const info = await getCodeforcesProblemInfo(url);
 
     const fullPath = `codeforces/single problem upsolve/${info.contestType}/${info.contestNumber}/${info.problemName}.cpp`;
@@ -668,9 +670,9 @@ async function codeforcesSingleSave() {
 }
 
 // Function for contest problem save
-async function codeforcesContestSave() {
+async function codeforcesContestSave(url = "") {
   try {
-    const url = prompt("Enter Codeforces problem URL:");
+    if (!url) url = prompt("Enter Codeforces problem URL:");
     const info = await getCodeforcesProblemInfo(url);
 
     const fullPath = `codeforces/contests/${info.contestType}/${info.contestNumber}/${info.problemName}.cpp`;
@@ -702,18 +704,6 @@ async function getTitleViaCors(url) {
   }
 }
 
-async function getTitleFromExtension(url) {
-  if (!window.chrome?.runtime) return null;
-
-  return new Promise(resolve => {
-    chrome.runtime.sendMessage(
-      EXTENSION_ID,
-      { type: "getAtCoderTitle", url },
-      response => resolve(response?.title || null)
-    );
-  });
-}
-
 const EXTENSION_ID = "bfmgaklgifkhephcoanmjfnhhpnldkbe";
 
 async function getTitleFromExtension(url) {
@@ -728,9 +718,9 @@ async function getTitleFromExtension(url) {
   });
 }
 
-async function atcoderContestSave() {
+async function atcoderContestSave(url = "") {
   try {
-    const url = prompt("Enter AtCoder problem URL:");
+    if (!url) url = prompt("Enter AtCoder problem URL:");
     if (!url) return;
 
     let rawTitle = await getTitleViaCors(url);
@@ -777,6 +767,81 @@ async function atcoderContestSave() {
   }
   catch (err) {
     console.log(err.message);
+  }
+}
+
+async function atcoderSingleSave(url = "") {
+  try {
+    if (!url) url = prompt("Enter AtCoder problem URL:");
+    if (!url) return;
+
+    let rawTitle = await getTitleViaCors(url);
+
+    if (!rawTitle || rawTitle.includes("404")) {
+      console.log("extension getting");
+      const extTitle = await getTitleFromExtension(url);
+      if (extTitle) rawTitle = extTitle;
+    }
+    else
+    {
+      console.log("cors getting");
+    }
+
+    const probName = rawTitle
+      ? rawTitle.split(/-(.+)/).slice(1).join("").trim().toLowerCase()
+      : "unknown";
+
+    let contestType;
+    const contest = url.match(/contests\/([^/]+)/)[1];
+    const prefix = contest.substring(0, 3).toLowerCase();
+    switch (prefix) {
+        case 'arc':
+            contestType = 'regular';
+            break;
+        case 'abc':
+            contestType = 'beginner';
+            break;
+        case 'ahc':
+            contestType = 'heuristic';
+            break;
+        case 'agc':
+            contestType = 'grand';
+            break;
+        default:
+            contestType = 'unknown';
+    }
+    const contestNum = contest.substring(3, 6);
+    const fullPath = `atcoder/single problem upsolve/${contestType}/${contestNum}/${probName}.cpp`;
+    const code = editor.getValue();
+    saveFile(fullPath, code, false)
+      .then(res => handleSaveResponse(res, fullPath, code))
+      .catch(err => alert("Error: " + err));
+  }
+  catch (err) {
+    console.log(err.message);
+  }
+}
+
+async function everythingSave() {
+  const url = prompt("Enter URL of the problem (Codeforces or AtCoder):");
+  const parsed = new URL(url);
+  const parts = parsed.hostname.split('.');
+  const mainP = parts.length > 1 ? parts[parts.length - 2] : parts[0];
+  const res = prompt("Is this a single problem upsolve or contest problem? (s/c)");
+  if (mainP.toLowerCase() === "codeforces") {
+    if (res.toLowerCase() === 's') {
+      await codeforcesSingleSave(url);
+    } else {
+      await codeforcesContestSave(url);
+    }
+  } else if (mainP.toLowerCase() === "atcoder") {
+    if (res.toLowerCase() === 's') {
+      await atcoderSingleSave(url);
+    } else {
+      await atcoderContestSave(url);
+    }
+  } else {
+    alert("huh??? this isnt codeforces/atcoder...");
   }
 }
 
