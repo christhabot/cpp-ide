@@ -448,20 +448,44 @@ const GIST_API_URL = `https://api.github.com/gists/${GIST_ID}`;
 
 // ========== HELPER FUNCTIONS ==========
 
-// Fetch the entire gist structure
+// Update the gist with new files
 async function fetchGist() {
-  const response = await fetch(GIST_API_URL, {
-    headers: {
-      "Authorization": `token ${GITHUB_TOKEN}`,
-      "Accept": "application/vnd.github.v3+json"
+  try {
+    const response = await fetch('https://gist-getter.christhabotyt.workers.dev', {
+      headers: {
+        'X-GitHub-Token': GITHUB_TOKEN
+      }
+    });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Worker error: ${error}`);
     }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`GitHub API error: ${response.status}`);
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    
+    const gistData = { files: {} };
+    
+    for (const [filepath, file] of Object.entries(zip.files)) {
+      if (!file.dir) {
+        const cleanPath = filepath.split('/').slice(1).join('/');
+        if (cleanPath) {
+          const content = await file.async('text');
+          const key = cleanPath.replace(/\//g, '___');
+          gistData.files[key] = {
+            filename: cleanPath,
+            content: content
+          };
+        }
+      }
+    }
+    
+    return gistData;
+    
+  } catch (err) {
+    throw new Error(`Gist fetch error: ${err.message}`);
   }
-  
-  return await response.json();
 }
 
 // Update the gist with new files
