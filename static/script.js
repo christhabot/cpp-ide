@@ -1048,9 +1048,6 @@ async function renameFolder(oldFolder, newFolderInput) {
   }
 }
 
-// ========== UPDATE YOUR EXISTING FUNCTIONS ==========
-
-// Replace the old saveCurrent function
 function saveCurrent() {
   document.getElementById("save-menu").style.display = "flex";
   refreshSaveLocationsList();
@@ -1060,48 +1057,11 @@ function closeSaveMenu() {
   document.getElementById("save-menu").style.display = "none";
 }
 
-// Replace refreshSaveLocationsList
 function refreshSaveLocationsList() {
   getSaves()
     .then(data => {
       const ul = document.getElementById("save-location-list");
       ul.innerHTML = "";
-      
-      // Add "Root" folder at the top
-      const rootLi = document.createElement("li");
-      rootLi.classList.add("folder-row");
-      
-      const leftDiv = document.createElement("div");
-      leftDiv.className = "left";
-      leftDiv.style.paddingLeft = "0px";
-      
-      const marker = document.createElement("span");
-      marker.className = "toggle-marker";
-      marker.textContent = "";
-      
-      const nameSpan = document.createElement("span");
-      nameSpan.className = "folder-name";
-      nameSpan.textContent = "Root";
-      nameSpan.style.fontWeight = "600";
-      
-      leftDiv.appendChild(marker);
-      leftDiv.appendChild(nameSpan);
-      
-      const actionsDiv = document.createElement("div");
-      actionsDiv.className = "folder-actions";
-      
-      const saveBtn = document.createElement("button");
-      saveBtn.textContent = "Save Here";
-      saveBtn.classList.add("save-here-btn");
-      saveBtn.addEventListener("click", (ev) => { 
-        ev.stopPropagation(); 
-        promptForFilenameAndSave("");
-      });
-      
-      actionsDiv.appendChild(saveBtn);
-      rootLi.appendChild(leftDiv);
-      rootLi.appendChild(actionsDiv);
-      ul.appendChild(rootLi);
       
       const entries = Array.isArray(data.files) ? data.files : [];
       
@@ -1154,7 +1114,9 @@ function refreshSaveLocationsList() {
           li.addEventListener("click", () => {
             if (openFolders.has(fullPath)) openFolders.delete(fullPath);
             else openFolders.add(fullPath);
-            refreshSaveLocationsList();
+            ul.innerHTML = "";
+            const newRows = [rootRow, ...renderFoldersOnly(entries, "", 0)]; // Rebuild from cached data
+            newRows.forEach(r => ul.appendChild(r));
           });
           
           rows.push(li);
@@ -1168,12 +1130,63 @@ function refreshSaveLocationsList() {
         return rows;
       }
       
+      const rootRow = createRootRow(() => {
+        if (openFolders.has("root")) openFolders.delete("root");
+        else openFolders.add("root");
+        ul.innerHTML = "";
+        const newRows = [rootRow, ...renderFoldersOnly(entries, "", 0)];
+        newRows.forEach(r => ul.appendChild(r));
+      });
+      
+      ul.appendChild(rootRow);
       const rows = renderFoldersOnly(entries, "", 0);
       rows.forEach(r => ul.appendChild(r));
     })
     .catch(err => {
       alert("Could not fetch save locations: " + err);
     });
+}
+
+function createRootRow(onClickHandler) {
+  const rootLi = document.createElement("li");
+  rootLi.classList.add("folder-row");
+  
+  const leftDiv = document.createElement("div");
+  leftDiv.className = "left";
+  leftDiv.style.paddingLeft = "0px";
+  
+  const marker = document.createElement("span");
+  marker.className = "toggle-marker";
+  marker.textContent = "";
+  
+  const nameSpan = document.createElement("span");
+  nameSpan.className = "folder-name";
+  nameSpan.textContent = "Root";
+  nameSpan.style.fontWeight = "600";
+  
+  leftDiv.appendChild(marker);
+  leftDiv.appendChild(nameSpan);
+  
+  const actionsDiv = document.createElement("div");
+  actionsDiv.className = "folder-actions";
+  
+  const saveBtn = document.createElement("button");
+  saveBtn.textContent = "Save Here";
+  saveBtn.classList.add("save-here-btn");
+  saveBtn.addEventListener("click", (ev) => { 
+    ev.stopPropagation(); 
+    promptForFilenameAndSave("");
+  });
+  
+  actionsDiv.appendChild(saveBtn);
+  rootLi.appendChild(leftDiv);
+  rootLi.appendChild(actionsDiv);
+  
+  if (onClickHandler) {
+    rootLi.addEventListener("click", onClickHandler);
+  }
+  
+  return rootLi;
 }
 
 // Replace promptForFilenameAndSave
